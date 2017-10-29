@@ -1,9 +1,11 @@
 package compare
 
 import (
+	"fmt"
 	"log"
 	"math"
 	"testing"
+	"time"
 )
 
 type Basic struct {
@@ -117,5 +119,60 @@ func TestCompare(t *testing.T) {
 			t.Errorf("Compare(%v, %v) = %v, want %v", test.a, test.b, r, test.eq)
 			log.Println(err)
 		}
+	}
+}
+
+// Below is the example code used for generating the example output.
+
+type Author struct {
+	FirstName  string
+	LastName   string
+	MiddleName string
+}
+
+type Publisher struct {
+	Name string
+	HQ   interface{}
+}
+
+type Book struct {
+	ISBN       interface{}
+	Title      string
+	ReleasedAt time.Time
+	Authors    []*Author
+	Publisher  *Publisher
+}
+
+func TestExample(t *testing.T) {
+	t.Skip()
+	got := &Book{
+		ISBN:       4101001545,
+		Title:      "海辺のカフカ",
+		ReleasedAt: time.Date(2005, time.March, 1, 0, 0, 0, 0, time.UTC),
+		Authors: []*Author{{
+			LastName:  "村上",
+			FirstName: "春樹",
+		}},
+		Publisher: &Publisher{
+			Name: "新潮社",
+			HQ:   "JP",
+		},
+	}
+	want := &Book{
+		ISBN:       "0099458322",
+		Title:      "Kafka on the Shore",
+		ReleasedAt: time.Date(2005, time.October, 6, 0, 0, 0, 0, time.UTC),
+		Authors: []*Author{{
+			FirstName: "Haruki",
+			LastName:  "Murakami",
+		}},
+		Publisher: &Publisher{
+			Name: "Vintage",
+			HQ:   nil,
+		},
+	}
+
+	if err, _ := Compare(got, want); err != nil {
+		fmt.Println(err)
 	}
 }
