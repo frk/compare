@@ -14,6 +14,9 @@ const (
 	cyanColor   = "\033[96m"
 	greenColor  = "\033[92m"
 	stopColor   = "\033[0m"
+
+	gotColor  = redColor
+	wantColor = cyanColor
 )
 
 type errorList struct {
@@ -52,8 +55,8 @@ func (err *validityError) Error() string {
 	if !err.want.IsValid() {
 		want = "INVALID"
 	}
-	got = yellowColor + got + stopColor
-	want = cyanColor + want + stopColor
+	got = gotColor + got + stopColor
+	want = wantColor + want + stopColor
 	return fmt.Sprintf("%s: Validity mismatch; got=%s, want=%s", err.path, got, want)
 }
 
@@ -64,8 +67,8 @@ type typeError struct {
 }
 
 func (err *typeError) Error() string {
-	got := yellowColor + err.got.Type().String() + stopColor
-	want := cyanColor + err.want.Type().String() + stopColor
+	got := gotColor + err.got.Type().String() + stopColor
+	want := wantColor + err.want.Type().String() + stopColor
 	return fmt.Sprintf("%s: Type mismatch; got=%s, want=%s", err.path, got, want)
 }
 
@@ -83,8 +86,8 @@ func (err *nilError) Error() string {
 	if !err.want.IsNil() {
 		want = fmt.Sprintf("%#v", err.want)
 	}
-	got = yellowColor + got + stopColor
-	want = cyanColor + want + stopColor
+	got = gotColor + got + stopColor
+	want = wantColor + want + stopColor
 	return fmt.Sprintf("%s: Nil mismatch; got=%s, want=%s", err.path, got, want)
 }
 
@@ -95,8 +98,8 @@ type lenError struct {
 }
 
 func (err *lenError) Error() string {
-	got := yellowColor + fmt.Sprintf("%d", err.got.Len()) + stopColor
-	want := cyanColor + fmt.Sprintf("%d", err.want.Len()) + stopColor
+	got := gotColor + fmt.Sprintf("%d", err.got.Len()) + stopColor
+	want := wantColor + fmt.Sprintf("%d", err.want.Len()) + stopColor
 	kind := err.want.Kind()
 	return fmt.Sprintf("%s: Length of %s mismatch; got=%s, want=%s", err.path, kind, got, want)
 }
@@ -115,8 +118,8 @@ func (err *funcError) Error() string {
 	if !err.want.IsNil() {
 		want = err.want.Type().String()
 	}
-	got = yellowColor + got + stopColor
-	want = cyanColor + want + stopColor
+	got = gotColor + got + stopColor
+	want = wantColor + want + stopColor
 	return fmt.Sprintf("%s: Func mismatch; got=%s, want=%s (Can only match if both are <nil>)", err.path, got, want)
 }
 
@@ -127,8 +130,8 @@ type valueError struct {
 }
 
 func (err *valueError) Error() string {
-	got := yellowColor + fmt.Sprintf("%v", err.got) + stopColor
-	want := cyanColor + fmt.Sprintf("%v", err.want) + stopColor
+	got := gotColor + fmt.Sprintf("%v", err.got) + stopColor
+	want := wantColor + fmt.Sprintf("%v", err.want) + stopColor
 	return fmt.Sprintf("%s: Value mismatch; got=%s, want=%s", err.path, got, want)
 }
 
@@ -158,9 +161,9 @@ var niltyp = reflect.TypeOf(nil)
 
 func (n rootnode) str(color interface{}) string {
 	if n.typ == niltyp {
-		return fmt.Sprintf("<%s%s%s>", purpleColor, "nil", stopColor)
+		return fmt.Sprintf("- <%s%s%s>", purpleColor, "nil", stopColor)
 	}
-	return fmt.Sprintf("(%s)", n.typ)
+	return fmt.Sprintf("- (%s)", n.typ)
 }
 
 type arrnode struct {

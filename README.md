@@ -68,4 +68,4 @@ func TestExample(t *testing.T) {
 
 The output of which would look something like this:
 
-![example output](https://github.com/frk/compare/raw/master/images/output_example.png)
+![example output](https://github.com/frk/compare/raw/master/images/output_example2.png)
