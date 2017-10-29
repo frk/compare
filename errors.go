@@ -135,8 +135,8 @@ func (err *valueError) Error() string {
 type path []pathnode
 
 func (p path) add(n pathnode) path {
-	p = append(p, n)
-	return p
+	q := append(path{}, p...)
+	return append(q, n)
 }
 
 func (p path) String() (s string) {

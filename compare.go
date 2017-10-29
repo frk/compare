@@ -1,3 +1,5 @@
+// The package compare facilitates the comparison of two Go values providing
+// a detailed error message in case the comparison fails.
 package compare
 
 import (
@@ -144,7 +146,7 @@ func compareArray(got, want reflect.Value, cmp *comparison, p path) {
 		// point out the "missing" or the "extra" elements...
 		return
 	}
-	for i := 0; i < got.Len(); i++ {
+	for i := 0; i < want.Len(); i++ {
 		q := p.add(arrnode{i})
 		ithGot := got.Index(i)
 		ithWant := want.Index(i)
@@ -175,8 +177,8 @@ func comparePointer(got, want reflect.Value, cmp *comparison, p path) {
 
 // compareStruct compares the corresponding fields of the two given struct values.
 func compareStruct(got, want reflect.Value, cmp *comparison, p path) {
-	for i, n := 0, got.NumField(); i < n; i++ {
-		q := p.add(structnode{got.Type().Field(i).Name})
+	for i, n := 0, want.NumField(); i < n; i++ {
+		q := p.add(structnode{want.Type().Field(i).Name})
 		fieldGot := got.Field(i)
 		fieldWant := want.Field(i)
 		compare(fieldGot, fieldWant, cmp, q)
