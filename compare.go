@@ -219,7 +219,7 @@ func compareFunc(got, want reflect.Value, cmp *comparison, p path) {
 	}
 }
 
-// compareInterfaceValue compares the two given values as normal interface values.
+// compareInterfaceValue compares the two given values as normal interface{} values.
 func compareInterfaceValue(got, want reflect.Value, cmp *comparison, p path) {
 	if g, w := valueInterface(got), valueInterface(want); g != w {
 		cmp.errs.add(&valueError{g, w, p})
