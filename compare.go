@@ -19,8 +19,8 @@ type visit struct {
 
 // Compare compares the two given values, and if the comparison fails it returns
 // an error that indicates where the two values differ. The ok return value reports
-// whether the comparison passed or failed and is mainly useful when the err return
-// value is discarded with _ because of it not being required.
+// whether the comparison passed or failed and is mainly useful in case when the
+// err return value is unnecessary and discarded with _.
 //
 // The comparison algorithm is a copy of the one used by reflect.DeepEqual only
 // split into multiple small functions.
