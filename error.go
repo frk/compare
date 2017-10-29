@@ -16,150 +16,120 @@ const (
 	stopColor   = "\033[0m"
 )
 
-type ErrorList struct {
+type errorList struct {
 	List []error
 }
 
-func (li *ErrorList) Add(err error) {
-	li.List = append(li.List, err)
+func (el *errorList) add(err error) {
+	el.List = append(el.List, err)
 }
 
-func (li *ErrorList) Error() (res string) {
-	for _, err := range li.List {
+func (el *errorList) err() error {
+	if len(el.List) > 0 {
+		return el
+	}
+	return nil
+}
+
+func (el *errorList) Error() (res string) {
+	for _, err := range el.List {
 		res += fmt.Sprintf("%s\n", err)
 	}
 	return strings.TrimRight(res, "\n")
 }
 
-func (li *ErrorList) Err() error {
-	if len(li.List) > 0 {
-		return li
+type validityError struct {
+	got  reflect.Value
+	want reflect.Value
+	path path
+}
+
+func (err *validityError) Error() string {
+	got, want := "VALID", "VALID"
+	if !err.got.IsValid() {
+		got = "INVALID"
 	}
-	return nil
-}
-
-type ValidityError struct {
-	got, want reflect.Value
-	path      path
-}
-
-func NewValidityError(got, want reflect.Value, p path) *ValidityError {
-	return &ValidityError{got, want, p}
-}
-
-func (err *ValidityError) Error() string {
-	got := yellowColor + fmtvalidity(err.got) + stopColor
-	want := cyanColor + fmtvalidity(err.want) + stopColor
+	if !err.want.IsValid() {
+		want = "INVALID"
+	}
+	got = yellowColor + got + stopColor
+	want = cyanColor + want + stopColor
 	return fmt.Sprintf("%s: Validity mismatch; got=%s, want=%s", err.path, got, want)
 }
 
-func fmtvalidity(v reflect.Value) string {
-	if v.IsValid() {
-		return "VALID"
-	}
-	return "INVALID"
+type typeError struct {
+	got  reflect.Value
+	want reflect.Value
+	path path
 }
 
-type TypeError struct {
-	got, want reflect.Value
-	path      path
-}
-
-func NewTypeError(got, want reflect.Value, p path) *TypeError {
-	return &TypeError{got, want, p}
-}
-
-func (err *TypeError) Error() string {
-	got := yellowColor + fmttype(err.got) + stopColor
-	want := cyanColor + fmttype(err.want) + stopColor
+func (err *typeError) Error() string {
+	got := yellowColor + err.got.Type().String() + stopColor
+	want := cyanColor + err.want.Type().String() + stopColor
 	return fmt.Sprintf("%s: Type mismatch; got=%s, want=%s", err.path, got, want)
 }
 
-func fmttype(v reflect.Value) string {
-	return v.Type().String()
+type nilError struct {
+	got  reflect.Value
+	want reflect.Value
+	path path
 }
 
-type NilError struct {
-	got, want reflect.Value
-	path      path
-}
-
-func NewNilError(got, want reflect.Value, p path) *NilError {
-	return &NilError{got, want, p}
-}
-
-func (err *NilError) Error() string {
-	got := yellowColor + fmtnil(err.got) + stopColor
-	want := cyanColor + fmtnil(err.want) + stopColor
+func (err *nilError) Error() string {
+	got, want := "<nil>", "<nil>"
+	if !err.got.IsNil() {
+		got = fmt.Sprintf("%#v", err.got)
+	}
+	if !err.want.IsNil() {
+		want = fmt.Sprintf("%#v", err.want)
+	}
+	got = yellowColor + got + stopColor
+	want = cyanColor + want + stopColor
 	return fmt.Sprintf("%s: Nil mismatch; got=%s, want=%s", err.path, got, want)
 }
 
-func fmtnil(v reflect.Value) string {
-	if v.IsNil() {
-		return "<nil>"
-	}
-	return fmt.Sprintf("%#v", v)
+type lenError struct {
+	got  reflect.Value
+	want reflect.Value
+	path path
 }
 
-type LenError struct {
-	got, want reflect.Value
-	path      path
-}
-
-func NewLenError(got, want reflect.Value, p path) *LenError {
-	return &LenError{got, want, p}
-}
-
-func (err *LenError) Error() string {
-	got := yellowColor + fmtlen(err.got) + stopColor
-	want := cyanColor + fmtlen(err.want) + stopColor
+func (err *lenError) Error() string {
+	got := yellowColor + fmt.Sprintf("%d", err.got.Len()) + stopColor
+	want := cyanColor + fmt.Sprintf("%d", err.want.Len()) + stopColor
 	kind := err.want.Kind()
 	return fmt.Sprintf("%s: Length of %s mismatch; got=%s, want=%s", err.path, kind, got, want)
 }
 
-func fmtlen(v reflect.Value) string {
-	return fmt.Sprintf("%d", v.Len())
+type funcError struct {
+	got  reflect.Value
+	want reflect.Value
+	path path
 }
 
-type FuncError struct {
-	got, want reflect.Value
-	path      path
-}
-
-func NewFuncError(got, want reflect.Value, p path) *FuncError {
-	return &FuncError{got, want, p}
-}
-
-func (err *FuncError) Error() string {
-	got := yellowColor + fmtfunc(err.got) + stopColor
-	want := cyanColor + fmtfunc(err.want) + stopColor
+func (err *funcError) Error() string {
+	got, want := "<nil>", "<nil>"
+	if !err.got.IsNil() {
+		got = err.got.Type().String()
+	}
+	if !err.want.IsNil() {
+		want = err.want.Type().String()
+	}
+	got = yellowColor + got + stopColor
+	want = cyanColor + want + stopColor
 	return fmt.Sprintf("%s: Func mismatch; got=%s, want=%s (Can only match if both are <nil>)", err.path, got, want)
 }
 
-func fmtfunc(v reflect.Value) string {
-	if v.IsNil() {
-		return "<nil>"
-	}
-	return v.Type().String()
+type valueError struct {
+	got  interface{}
+	want interface{}
+	path path
 }
 
-type ValueError struct {
-	got, want reflect.Value
-	path      path
-}
-
-func NewValueError(got, want reflect.Value, p path) *ValueError {
-	return &ValueError{got, want, p}
-}
-
-func (err *ValueError) Error() string {
-	got := yellowColor + fmtvalue(err.got) + stopColor
-	want := cyanColor + fmtvalue(err.want) + stopColor
+func (err *valueError) Error() string {
+	got := yellowColor + fmt.Sprintf("%v", err.got) + stopColor
+	want := cyanColor + fmt.Sprintf("%v", err.want) + stopColor
 	return fmt.Sprintf("%s: Value mismatch; got=%s, want=%s", err.path, got, want)
-}
-
-func fmtvalue(v reflect.Value) string {
-	return fmt.Sprintf("%v", valueInterface(v))
 }
 
 type path []pathnode

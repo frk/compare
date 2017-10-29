@@ -8,7 +8,7 @@ import (
 // comparison holds the state of the Compare function, collecting errors
 // and pointers that have already been compared.
 type comparison struct {
-	errs   *ErrorList
+	errs   *errorList
 	visits map[visit]bool // track pointers already compared
 }
 
@@ -17,11 +17,18 @@ type visit struct {
 	typ       reflect.Type
 }
 
-func Compare(got, want interface{}) (error, bool) {
+// Compare compares the two given values, and if the comparison fails it returns
+// an error that indicates where the two values differ. The ok return value reports
+// whether the comparison passed or failed and is mainly useful when the err return
+// value is discarded with _ because of it not being required.
+//
+// The comparison algorithm is a copy of the one used by reflect.DeepEqual only
+// split into multiple small functions.
+func Compare(got, want interface{}) (err error, ok bool) {
 	gotv := reflect.ValueOf(got)
 	wantv := reflect.ValueOf(want)
 
-	errlist := &ErrorList{}
+	errlist := &errorList{}
 	cmp := &comparison{
 		errs:   errlist,
 		visits: make(map[visit]bool),
@@ -30,7 +37,7 @@ func Compare(got, want interface{}) (error, bool) {
 	p := path{rootnode{reflect.TypeOf(want)}}
 
 	compare(gotv, wantv, cmp, p)
-	if err := errlist.Err(); err != nil {
+	if err = errlist.err(); err != nil {
 		return err, false
 	}
 	return nil, true
@@ -72,7 +79,7 @@ func compare(got, want reflect.Value, cmp *comparison, p path) {
 // comparison of the two values can continue.
 func compareValidity(got, want reflect.Value, cmp *comparison, p path) (ok bool) {
 	if got.IsValid() != want.IsValid() {
-		cmp.errs.Add(NewValidityError(got, want, p))
+		cmp.errs.add(&validityError{got, want, p})
 	}
 	return got.IsValid() && want.IsValid()
 }
@@ -82,7 +89,7 @@ func compareValidity(got, want reflect.Value, cmp *comparison, p path) (ok bool)
 // two values can continue.
 func compareType(got, want reflect.Value, cmp *comparison, p path) (ok bool) {
 	if got.Type() != want.Type() {
-		cmp.errs.Add(NewTypeError(got, want, p))
+		cmp.errs.add(&typeError{got, want, p})
 		return false
 	}
 	return true
@@ -123,7 +130,7 @@ func compareSlice(got, want reflect.Value, cmp *comparison, p path) {
 		return
 	}
 	if got.IsNil() != want.IsNil() {
-		cmp.errs.Add(NewNilError(got, want, p))
+		cmp.errs.add(&nilError{got, want, p})
 		return
 	}
 	compareArray(got, want, cmp, p)
@@ -132,7 +139,7 @@ func compareSlice(got, want reflect.Value, cmp *comparison, p path) {
 // compareArray compares the length and contents of the two array values.
 func compareArray(got, want reflect.Value, cmp *comparison, p path) {
 	if got.Len() != want.Len() {
-		cmp.errs.Add(NewLenError(got, want, p))
+		cmp.errs.add(&lenError{got, want, p})
 		// TODO(mkopriva): might be good to compare the contents and
 		// point out the "missing" or the "extra" elements...
 		return
@@ -148,7 +155,7 @@ func compareArray(got, want reflect.Value, cmp *comparison, p path) {
 // compareInterface compares the underlying element values of the two interface values.
 func compareInterface(got, want reflect.Value, cmp *comparison, p path) {
 	if got.IsNil() != want.IsNil() {
-		cmp.errs.Add(NewNilError(got, want, p))
+		cmp.errs.add(&nilError{got, want, p})
 		return
 	}
 	got = got.Elem()
@@ -182,11 +189,11 @@ func compareMap(got, want reflect.Value, cmp *comparison, p path) {
 		return
 	}
 	if got.IsNil() != want.IsNil() {
-		cmp.errs.Add(NewNilError(got, want, p))
+		cmp.errs.add(&nilError{got, want, p})
 		return
 	}
 	if got.Len() != want.Len() {
-		cmp.errs.Add(NewLenError(got, want, p))
+		cmp.errs.add(&lenError{got, want, p})
 		// TODO(mkopriva): might be good to compare the contents and
 		// point out the "missing" or the "extra" elements...
 		return
@@ -198,7 +205,7 @@ func compareMap(got, want reflect.Value, cmp *comparison, p path) {
 		valWant := want.MapIndex(key)
 
 		if !valGot.IsValid() || !valWant.IsValid() {
-			cmp.errs.Add(NewValidityError(valGot, valWant, q))
+			cmp.errs.add(&validityError{valGot, valWant, q})
 			continue
 		}
 		compare(valGot, valWant, cmp, q)
@@ -208,14 +215,14 @@ func compareMap(got, want reflect.Value, cmp *comparison, p path) {
 // compareFunc only checks whether the two given func values are nil.
 func compareFunc(got, want reflect.Value, cmp *comparison, p path) {
 	if !got.IsNil() || !want.IsNil() {
-		cmp.errs.Add(NewFuncError(got, want, p))
+		cmp.errs.add(&funcError{got, want, p})
 	}
 }
 
 // compareInterfaceValue compares the two given values as normal interface values.
 func compareInterfaceValue(got, want reflect.Value, cmp *comparison, p path) {
-	if valueInterface(got) != valueInterface(want) {
-		cmp.errs.Add(NewValueError(got, want, p))
+	if g, w := valueInterface(got), valueInterface(want); g != w {
+		cmp.errs.add(&valueError{g, w, p})
 	}
 }
 
