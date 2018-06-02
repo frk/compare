@@ -7,6 +7,23 @@ import (
 	"unsafe"
 )
 
+// Compare is a wrapper around DefaultConfig.Compare.
+func Compare(got, want interface{}) (err error, ok bool) {
+	return DefaultConfig.Compare(got, want)
+}
+
+// Config specifies the configuration for the value comparison.
+type Config struct {
+	// If IgnoreArrayOrder is set, the order of elements inside arrays and
+	// slices is ignored. That is, two array/slice values are equal if they
+	// have the same number of elements and each element in one array value
+	// has an equivalent element in the other array value.
+	IgnoreArrayOrder bool
+}
+
+// DefaultConfig is the default Config used by Compare.
+var DefaultConfig Config
+
 // comparison holds the state of the Compare function, collecting errors
 // and pointers that have already been compared.
 type comparison struct {
@@ -14,9 +31,17 @@ type comparison struct {
 	visits map[visit]bool // track pointers already compared
 }
 
+func newComparison() *comparison {
+	cmp := new(comparison)
+	cmp.errs = new(errorList)
+	cmp.visits = make(map[visit]bool)
+	return cmp
+}
+
 type visit struct {
-	got, want unsafe.Pointer
-	typ       reflect.Type
+	got  unsafe.Pointer
+	want unsafe.Pointer
+	typ  reflect.Type
 }
 
 // Compare compares the two given values, and if the comparison fails it returns
@@ -26,60 +51,63 @@ type visit struct {
 //
 // The comparison algorithm is a copy of the one used by reflect.DeepEqual only
 // split into multiple small functions.
-func Compare(got, want interface{}) (err error, ok bool) {
+func (conf Config) Compare(got, want interface{}) (err error, ok bool) {
 	gotv := reflect.ValueOf(got)
 	wantv := reflect.ValueOf(want)
 
-	errlist := &errorList{}
-	cmp := &comparison{
-		errs:   errlist,
-		visits: make(map[visit]bool),
-	}
-
 	p := path{rootnode{reflect.TypeOf(want)}}
-
-	compare(gotv, wantv, cmp, p)
-	if err = errlist.err(); err != nil {
+	cmp := newComparison()
+	conf.compare(gotv, wantv, cmp, p)
+	if err = cmp.errs.err(); err != nil {
 		return err, false
 	}
 	return nil, true
 }
 
-func compare(got, want reflect.Value, cmp *comparison, p path) {
-	if ok := compareValidity(got, want, cmp, p); !ok {
+func (conf Config) compare(got, want reflect.Value, cmp *comparison, p path) {
+	if ok := conf.compareValidity(got, want, cmp, p); !ok {
 		return
 	}
-	if ok := compareType(got, want, cmp, p); !ok {
+	if ok := conf.compareType(got, want, cmp, p); !ok {
 		return
 	}
-	if ok := checkVisited(got, want, cmp, p); !ok {
+	if ok := conf.checkVisited(got, want, cmp, p); !ok {
 		return
 	}
 
 	switch got.Kind() {
 	case reflect.Array:
-		compareArray(got, want, cmp, p)
+		conf.compareArray(got, want, cmp, p)
 	case reflect.Slice:
-		compareSlice(got, want, cmp, p)
+		conf.compareSlice(got, want, cmp, p)
 	case reflect.Interface:
-		compareInterface(got, want, cmp, p)
+		conf.compareInterface(got, want, cmp, p)
 	case reflect.Ptr:
-		comparePointer(got, want, cmp, p)
+		conf.comparePointer(got, want, cmp, p)
 	case reflect.Struct:
-		compareStruct(got, want, cmp, p)
+		conf.compareStruct(got, want, cmp, p)
 	case reflect.Map:
-		compareMap(got, want, cmp, p)
+		conf.compareMap(got, want, cmp, p)
 	case reflect.Func:
-		compareFunc(got, want, cmp, p)
+		conf.compareFunc(got, want, cmp, p)
+	case reflect.String:
+		conf.compareString(got, want, cmp, p)
 	default:
-		compareInterfaceValue(got, want, cmp, p)
+		conf.compareInterfaceValue(got, want, cmp, p)
 	}
+}
+
+func (conf Config) equals(got, want reflect.Value) bool {
+	p := make(path, 0)
+	cmp := newComparison()
+	conf.compare(got, want, cmp, p)
+	return len(cmp.errs.List) == 0
 }
 
 // compareValidity compares the validity of the two values. The ok return value
 // reports whether both of the values are valid effectively indicating that the
 // comparison of the two values can continue.
-func compareValidity(got, want reflect.Value, cmp *comparison, p path) (ok bool) {
+func (conf Config) compareValidity(got, want reflect.Value, cmp *comparison, p path) (ok bool) {
 	if got.IsValid() != want.IsValid() {
 		cmp.errs.add(&validityError{got, want, p})
 	}
@@ -89,7 +117,7 @@ func compareValidity(got, want reflect.Value, cmp *comparison, p path) (ok bool)
 // compareType compares the types of the two values. The ok return value reports
 // whether the types are equal effectively indicating that the comparison of the
 // two values can continue.
-func compareType(got, want reflect.Value, cmp *comparison, p path) (ok bool) {
+func (conf Config) compareType(got, want reflect.Value, cmp *comparison, p path) (ok bool) {
 	if got.Type() != want.Type() {
 		cmp.errs.add(&typeError{got, want, p})
 		return false
@@ -97,7 +125,7 @@ func compareType(got, want reflect.Value, cmp *comparison, p path) (ok bool) {
 	return true
 }
 
-func hard(k reflect.Kind) bool {
+func (conf Config) hard(k reflect.Kind) bool {
 	switch k {
 	case reflect.Map, reflect.Slice, reflect.Ptr, reflect.Interface:
 		return true
@@ -108,8 +136,8 @@ func hard(k reflect.Kind) bool {
 // checkVisited checks whether the values, if they are addressable, have already
 // been visited and if they haven't records a new visit into the visits map. The
 // ok return value reports whether the comparison needs to continue or not.
-func checkVisited(got, want reflect.Value, cmp *comparison, p path) (ok bool) {
-	if got.CanAddr() && want.CanAddr() && hard(got.Kind()) {
+func (conf Config) checkVisited(got, want reflect.Value, cmp *comparison, p path) (ok bool) {
+	if got.CanAddr() && want.CanAddr() && conf.hard(got.Kind()) {
 		gotAddr := unsafe.Pointer(got.UnsafeAddr())
 		wantAddr := unsafe.Pointer(want.UnsafeAddr())
 		if uintptr(gotAddr) > uintptr(wantAddr) {
@@ -127,7 +155,7 @@ func checkVisited(got, want reflect.Value, cmp *comparison, p path) (ok bool) {
 }
 
 // compareSlice compares the address, length and contents of the two slice values.
-func compareSlice(got, want reflect.Value, cmp *comparison, p path) {
+func (conf Config) compareSlice(got, want reflect.Value, cmp *comparison, p path) {
 	if got.Pointer() == want.Pointer() {
 		return
 	}
@@ -135,58 +163,94 @@ func compareSlice(got, want reflect.Value, cmp *comparison, p path) {
 		cmp.errs.add(&nilError{got, want, p})
 		return
 	}
-	compareArray(got, want, cmp, p)
+	conf.compareArray(got, want, cmp, p)
 }
 
 // compareArray compares the length and contents of the two array values.
-func compareArray(got, want reflect.Value, cmp *comparison, p path) {
+func (conf Config) compareArray(got, want reflect.Value, cmp *comparison, p path) {
 	if got.Len() != want.Len() {
 		cmp.errs.add(&lenError{got, want, p})
 		// TODO(mkopriva): might be good to compare the contents and
 		// point out the "missing" or the "extra" elements...
 		return
 	}
+
+	if conf.IgnoreArrayOrder {
+		conf.compareArrayIgnoreOrder(got, want, cmp, p)
+		return
+	}
+
 	for i := 0; i < want.Len(); i++ {
 		q := p.add(arrnode{i})
 		ithGot := got.Index(i)
 		ithWant := want.Index(i)
-		compare(ithGot, ithWant, cmp, q)
+		conf.compare(ithGot, ithWant, cmp, q)
+	}
+}
+
+func (conf Config) compareArrayIgnoreOrder(got, want reflect.Value, cmp *comparison, p path) {
+	gotidx := make([]int, got.Len())
+	for i := range gotidx {
+		gotidx[i] = i
+	}
+
+	for i := 0; i < want.Len(); i++ {
+		q := p.add(arrnode{i})
+		ithWant := want.Index(i)
+
+		var foundEqual bool
+		for i, j := range gotidx {
+			ithGot := got.Index(j)
+			if conf.equals(ithGot, ithWant) {
+				gotidx = append(gotidx[:i], gotidx[i+1:]...)
+				foundEqual = true
+				break
+			}
+		}
+		if !foundEqual {
+			gotNil := reflect.ValueOf((*interface{})(nil))
+			cmp.errs.add(&nilError{gotNil, ithWant, q})
+		}
 	}
 }
 
 // compareInterface compares the underlying element values of the two interface values.
-func compareInterface(got, want reflect.Value, cmp *comparison, p path) {
+func (conf Config) compareInterface(got, want reflect.Value, cmp *comparison, p path) {
 	if got.IsNil() != want.IsNil() {
 		cmp.errs.add(&nilError{got, want, p})
 		return
 	}
 	got = got.Elem()
 	want = want.Elem()
-	compare(got, want, cmp, p)
+	conf.compare(got, want, cmp, p)
 }
 
 // comparePointer compares the values pointed to by the two given pointer values.
-func comparePointer(got, want reflect.Value, cmp *comparison, p path) {
+func (conf Config) comparePointer(got, want reflect.Value, cmp *comparison, p path) {
 	if got.Pointer() == want.Pointer() {
 		return
 	}
 	got = got.Elem()
 	want = want.Elem()
-	compare(got, want, cmp, p)
+	conf.compare(got, want, cmp, p)
 }
 
 // compareStruct compares the corresponding fields of the two given struct values.
-func compareStruct(got, want reflect.Value, cmp *comparison, p path) {
+func (conf Config) compareStruct(got, want reflect.Value, cmp *comparison, p path) {
 	for i, n := 0, want.NumField(); i < n; i++ {
-		q := p.add(structnode{want.Type().Field(i).Name})
+		f := want.Type().Field(i)
+		if f.Tag.Get("cmp") == "-" {
+			continue
+		}
+		q := p.add(structnode{f.Name})
 		fieldGot := got.Field(i)
 		fieldWant := want.Field(i)
-		compare(fieldGot, fieldWant, cmp, q)
+		conf.compare(fieldGot, fieldWant, cmp, q)
 	}
 }
 
 // compareMap compares the length and contents of the two given map values.
-func compareMap(got, want reflect.Value, cmp *comparison, p path) {
+func (conf Config) compareMap(got, want reflect.Value, cmp *comparison, p path) {
 	if got.Pointer() == want.Pointer() {
 		return
 	}
@@ -210,19 +274,28 @@ func compareMap(got, want reflect.Value, cmp *comparison, p path) {
 			cmp.errs.add(&validityError{valGot, valWant, q})
 			continue
 		}
-		compare(valGot, valWant, cmp, q)
+		conf.compare(valGot, valWant, cmp, q)
 	}
 }
 
 // compareFunc only checks whether the two given func values are nil.
-func compareFunc(got, want reflect.Value, cmp *comparison, p path) {
+func (conf Config) compareFunc(got, want reflect.Value, cmp *comparison, p path) {
 	if !got.IsNil() || !want.IsNil() {
 		cmp.errs.add(&funcError{got, want, p})
 	}
 }
 
+// compareString
+func (conf Config) compareString(got, want reflect.Value, cmp *comparison, p path) {
+	gots, wants := got.String(), want.String()
+	if gots == wants {
+		return
+	}
+	cmp.errs.add(newStringError(gots, wants, p))
+}
+
 // compareInterfaceValue compares the two given values as normal interface{} values.
-func compareInterfaceValue(got, want reflect.Value, cmp *comparison, p path) {
+func (conf Config) compareInterfaceValue(got, want reflect.Value, cmp *comparison, p path) {
 	if g, w := valueInterface(got), valueInterface(want); g != w {
 		cmp.errs.add(&valueError{g, w, p})
 	}
