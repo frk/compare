@@ -18,7 +18,8 @@ const (
 	gotColor  = redColor
 	wantColor = cyanColor
 
-	diffColor = "\033[30;40m"
+	diffColor     = "\033[46m\033[30m"
+	diffStopColor = "\033[0m"
 )
 
 type errorList struct {
@@ -147,30 +148,28 @@ const maxlen = 30 // max string length displayable in an error message
 
 func newStringError(got, want string, p path) *stringError {
 	err := &stringError{
-		got:  got,
-		want: want,
+		got:  gotColor + `"` + got + `"` + stopColor,
+		want: wantColor + `"` + want + `"` + stopColor,
 		path: p,
 	}
-	// if d := _diff(got, want); d != nil {
-	// 	//got = _trim(got, d.start, maxlen)
-	// 	//want = _trim(want, d.start, maxlen)
-	// 	//if !d.isb {
-	// 	//	want = wantColor + want[:d.start] + stopColor + diffColor + want[d.start:]
-	// 	//	want = want[:d.end] + stopColor + wantColor + want[d.end:] + stopColor
-	// 	//} else {
-	// 	//	got = gotColor + got[:d.start] + stopColor + diffColor + got[d.start:]
-	// 	//	got = got[:d.end] + stopColor + gotColor + got[d.end:] + stopColor
-	// 	//}
-	// }
+	if d := sdiff(got, want); d != nil {
+		start, end := got[:d.start], got[d.end:]
+		delta := got[d.start:d.end]
+
+		err.got = gotColor + `"` +
+			start + stopColor + diffColor +
+			delta + diffStopColor + gotColor +
+			end + `"` + stopColor
+	}
 	return err
 }
 
 func (err *stringError) Error() string {
-	// TODO
-	got := gotColor + `"` + err.got + `"` + stopColor
-	want := wantColor + `"` + err.want + `"` + stopColor
-	return fmt.Sprintf("%s: Value mismatch; got=%s, want=%s", err.path, got, want)
+	return fmt.Sprintf("%s: Value mismatch; got=%s, want=%s", err.path, err.got, err.want)
 }
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
 type path []pathnode
 

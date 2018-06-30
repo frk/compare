@@ -9,6 +9,7 @@ func Test_sdiff(t *testing.T) {
 	tests := []struct {
 		a, b string
 		want *diff
+		str  string
 	}{{
 		a: "", b: "",
 	}, {
@@ -17,30 +18,36 @@ func Test_sdiff(t *testing.T) {
 		a: "日本語", b: "日本語",
 	}, {
 		a: "a", b: "b",
-		want: &diff{0, 0},
+		want: &diff{0, 1},
 	}, {
 		a: "abc", b: "adc",
-		want: &diff{1, 1},
+		want: &diff{1, 2},
 	}, {
 		a: "hello world", b: "hell0\tWorld",
-		want: &diff{4, 6},
+		want: &diff{4, 7},
 	}, {
 		a: "hello world!!", b: "hello world",
-		want: &diff{11, 12},
+		want: &diff{11, 13},
+	}, {
+		a: "hello world", b: "hello world!!",
+		want: &diff{11, 11},
+	}, {
+		a: "hello worlb", b: "hello world!!",
+		want: &diff{10, 11},
 	}, {
 		a: "日木語", b: "日本語",
 		want: &diff{3, 6},
 	}}
 
 	for i, tt := range tests {
-		got := _diff(tt.a, tt.b)
+		got := sdiff(tt.a, tt.b)
 		if !reflect.DeepEqual(got, tt.want) {
 			t.Errorf("#%d: %q<>%q diff got=%v, want=%v", i, tt.a, tt.b, got, tt.want)
 		}
 	}
 }
 
-func Test_trim(t *testing.T) {
+func Test_strim(t *testing.T) {
 	tests := []struct {
 		pos, max int
 		s, want  string
@@ -71,7 +78,7 @@ func Test_trim(t *testing.T) {
 	}}
 
 	for i, tt := range tests {
-		s := _trim(tt.s, tt.pos, tt.max)
+		s := strim(tt.s, tt.pos, tt.max)
 		if s != tt.want {
 			t.Errorf("#%d: diff got=%q, want=%q", i, s, tt.want)
 		}
