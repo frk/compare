@@ -18,8 +18,11 @@ const (
 	gotColor  = redColor
 	wantColor = cyanColor
 
-	diffColor     = "\033[46m\033[30m"
-	diffStopColor = "\033[0m"
+	diffGotColor     = "\033[46m\033[30m"
+	diffGotStopColor = "\033[0m"
+
+	diffWantColor     = "\033[41m\033[30m"
+	diffWantStopColor = "\033[0m"
 )
 
 type errorList struct {
@@ -157,9 +160,24 @@ func newStringError(got, want string, p path) *stringError {
 		delta := got[d.start:d.end]
 
 		err.got = gotColor + `"` +
-			start + stopColor + diffColor +
-			delta + diffStopColor + gotColor +
+			start + stopColor + diffGotColor +
+			delta + diffGotStopColor + gotColor +
 			end + `"` + stopColor
+
+		if len(want) > d.start {
+			start = want[:d.start]
+			if len(want) > d.end {
+				end = want[d.end:]
+				delta = want[d.start:d.end]
+			} else {
+				end = ""
+				delta = want[d.start:]
+			}
+			err.want = wantColor + `"` +
+				start + stopColor + diffWantColor +
+				delta + diffWantStopColor + wantColor +
+				end + `"` + stopColor
+		}
 	}
 	return err
 }
