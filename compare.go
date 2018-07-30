@@ -8,7 +8,7 @@ import (
 )
 
 // Compare is a wrapper around DefaultConfig.Compare.
-func Compare(got, want interface{}) (err error, ok bool) {
+func Compare(got, want interface{}) error {
 	return DefaultConfig.Compare(got, want)
 }
 
@@ -19,6 +19,14 @@ type Config struct {
 	// have the same number of elements and each element in one array value
 	// has an equivalent element in the other array value.
 	IgnoreArrayOrder bool
+
+	// The tag name to be checked by Compare for optional comparison rules.
+	// If ObserveFieldTag is set, its value will be used as the name of the tag
+	// to be checked, if it is empty then no tag will be checked.
+	//
+	// Currently the only optional rules are:
+	// "-": The minus option omits a field from comparison.
+	ObserveFieldTag string
 }
 
 // DefaultConfig is the default Config used by Compare.
@@ -45,23 +53,18 @@ type visit struct {
 }
 
 // Compare compares the two given values, and if the comparison fails it returns
-// an error that indicates where the two values differ. The ok return value reports
-// whether the comparison passed or failed and is mainly useful in case when the
-// err return value is unnecessary and discarded with _.
+// an error that indicates where the two values differ.
 //
 // The comparison algorithm is a copy of the one used by reflect.DeepEqual only
 // split into multiple small functions.
-func (conf Config) Compare(got, want interface{}) (err error, ok bool) {
+func (conf Config) Compare(got, want interface{}) error {
 	gotv := reflect.ValueOf(got)
 	wantv := reflect.ValueOf(want)
 
 	p := path{rootnode{reflect.TypeOf(want)}}
 	cmp := newComparison()
 	conf.compare(gotv, wantv, cmp, p)
-	if err = cmp.errs.err(); err != nil {
-		return err, false
-	}
-	return nil, true
+	return cmp.errs.err()
 }
 
 func (conf Config) compare(got, want reflect.Value, cmp *comparison, p path) {
@@ -239,8 +242,10 @@ func (conf Config) comparePointer(got, want reflect.Value, cmp *comparison, p pa
 func (conf Config) compareStruct(got, want reflect.Value, cmp *comparison, p path) {
 	for i, n := 0, want.NumField(); i < n; i++ {
 		f := want.Type().Field(i)
-		if f.Tag.Get("cmp") == "-" {
-			continue
+		if len(conf.ObserveFieldTag) > 0 {
+			if f.Tag.Get(conf.ObserveFieldTag) == "-" {
+				continue
+			}
 		}
 		q := p.add(structnode{f.Name})
 		fieldGot := got.Field(i)
@@ -305,12 +310,22 @@ func valueInterface(v reflect.Value) interface{} {
 	switch v.Kind() {
 	case reflect.Bool:
 		return v.Bool()
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+	case reflect.Int:
+		return int(v.Int())
+	case reflect.Int8:
+		return int8(v.Int())
+	case reflect.Int16:
+		return int16(v.Int())
+	case reflect.Int32:
+		return int32(v.Int())
+	case reflect.Int64:
 		return v.Int()
 	case reflect.Uint, reflect.Uintptr, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		return v.Uint()
-	case reflect.Float32, reflect.Float64:
-		return v.Float()
+	case reflect.Float32:
+		return float32(v.Float())
+	case reflect.Float64:
+		return float64(v.Float())
 	case reflect.Complex64, reflect.Complex128:
 		return v.Complex()
 	case reflect.String:
