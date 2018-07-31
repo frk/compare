@@ -59,7 +59,7 @@ func TestExample(t *testing.T) {
 		},
 	}
 
-	if err, _ := Compare(got, want); err != nil {
+	if err := Compare(got, want); err != nil {
 		t.Error(err)
 	}
 }
