@@ -15,6 +15,11 @@ type Basic struct {
 
 type NotBasic Basic
 
+type Tagged struct {
+	f1 string `cmp:"-"`
+	f2 string `cmp:"+"`
+}
+
 type CompareTest struct {
 	a, b interface{}
 	err  error
@@ -66,6 +71,9 @@ var compareTests = []CompareTest{
 	{a: error(nil), b: error(nil), err: nil},
 	{a: map[int]string{1: "one", 2: "two"}, b: map[int]string{2: "two", 1: "one"}, err: nil},
 	{a: fn1, b: fn2, err: nil},
+	{a: Tagged{"abc", "foo"}, b: Tagged{"abc", "foo"}, err: nil},
+	{a: Tagged{"abc", "foo"}, b: Tagged{"def", "bar"}, err: nil},
+	{a: Tagged{"abc", ""}, b: Tagged{"", ""}, err: nil},
 
 	// Inequalities
 	{
@@ -333,6 +341,21 @@ var compareTests = []CompareTest{
 	}, {
 		a: &loopy1, b: &loopy2, err: nil,
 	},
+
+	// Tags
+	{
+		a: Tagged{f2: "foo"}, b: Tagged{f2: ""},
+		err: elist(&zeroError{false, true, path{
+			rootnode{rtof(Tagged{})},
+			structnode{field: "f2"},
+		}}),
+	}, {
+		a: Tagged{f2: ""}, b: Tagged{f2: "bar"},
+		err: elist(&zeroError{true, false, path{
+			rootnode{rtof(Tagged{})},
+			structnode{field: "f2"},
+		}}),
+	},
 }
 
 func TestCompare(t *testing.T) {
@@ -343,12 +366,14 @@ func TestCompare(t *testing.T) {
 		return err.Error()
 	}
 
+	conf := Config{ObserveFieldTag: "cmp"}
+
 	for _, test := range compareTests {
 		if test.b == (self{}) {
 			test.b = test.a
 		}
 
-		if err := Compare(test.a, test.b); errstr(err) != errstr(test.err) {
+		if err := conf.Compare(test.a, test.b); errstr(err) != errstr(test.err) {
 			t.Errorf("Compare(%v, %v) = %v\n\n", test.a, test.b, err)
 			t.Errorf("\"%s\" != \"%s\"", errstr(err), errstr(test.err))
 		}

@@ -141,6 +141,24 @@ func (err *valueError) Error() string {
 	return fmt.Sprintf("%s: Value mismatch; got=%s, want=%s", err.path, got, want)
 }
 
+type zeroError struct {
+	got  interface{}
+	want interface{}
+	path path
+}
+
+func (err *zeroError) Error() string {
+	var got, want string
+	if err.got == true {
+		got = gotColor + "<zero>" + stopColor
+		want = wantColor + "<non-zero>" + stopColor
+	} else {
+		got = gotColor + "<non-zero>" + stopColor
+		want = wantColor + "<zero>" + stopColor
+	}
+	return fmt.Sprintf("%s: Zero mismatch (both values must be either zero or non-zero); got=%s, want=%s", err.path, got, want)
+}
+
 type stringError struct {
 	got  string
 	want string
