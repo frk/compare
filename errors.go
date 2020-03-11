@@ -246,6 +246,14 @@ func (n arrnode) str(color interface{}) string {
 	return fmt.Sprintf("[%d]", n.index)
 }
 
+type channode struct {
+	index int
+}
+
+func (n channode) str(color interface{}) string {
+	return fmt.Sprintf("[%d]", n.index)
+}
+
 type mapnode struct {
 	key reflect.Value
 }

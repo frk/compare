@@ -57,6 +57,15 @@ func elist(errs ...error) *errorList {
 var rvof = reflect.ValueOf
 var rtof = reflect.TypeOf
 
+// helper function to construct int channels
+func chanint(ii ...int) chan int {
+	c := make(chan int, len(ii))
+	for _, i := range ii {
+		c <- i
+	}
+	return c
+}
+
 var compareTests = []CompareTest{
 	// Equalities
 	{a: nil, b: nil, err: nil},
@@ -74,6 +83,10 @@ var compareTests = []CompareTest{
 	{a: Tagged{"abc", "foo"}, b: Tagged{"abc", "foo"}, err: nil},
 	{a: Tagged{"abc", "foo"}, b: Tagged{"def", "bar"}, err: nil},
 	{a: Tagged{"abc", ""}, b: Tagged{"", ""}, err: nil},
+	{a: make(chan int), b: make(chan int), err: nil},
+	{a: make(<-chan int, 10), b: make(<-chan int, 20), err: nil},
+	{a: make(chan<- int), b: make(chan<- int, 21), err: nil},
+	{a: chanint(3, 88, 9), b: chanint(3, 88, 9), err: nil},
 
 	// Inequalities
 	{
@@ -355,6 +368,52 @@ var compareTests = []CompareTest{
 			rootnode{rtof(Tagged{})},
 			structnode{field: "f2"},
 		}}),
+	},
+
+	// channels
+	{
+		a: make(<-chan int), b: make(chan int),
+		err: elist(&typeError{
+			got:  rvof(make(<-chan int)),
+			want: rvof(make(chan int)),
+			path: path{rootnode{rtof(make(chan int))}},
+		}),
+	}, {
+		a: make(<-chan int), b: make(chan<- int),
+		err: elist(&typeError{
+			got:  rvof(make(<-chan int)),
+			want: rvof(make(chan<- int)),
+			path: path{rootnode{rtof(make(chan<- int))}},
+		}),
+	}, {
+		a: make(chan int), b: make(chan<- int),
+		err: elist(&typeError{
+			got:  rvof(make(chan int)),
+			want: rvof(make(chan<- int)),
+			path: path{rootnode{rtof(make(chan<- int))}},
+		}),
+	}, {
+		a: make(chan int), b: make(chan uint),
+		err: elist(&typeError{
+			got:  rvof(make(chan int)),
+			want: rvof(make(chan uint)),
+			path: path{rootnode{rtof(make(chan uint))}},
+		}),
+	}, {
+		a: chanint(3, 88, 9), b: chanint(3, 88),
+		err: elist(&lenError{
+			got: rvof(chanint(3, 88, 9)), want: rvof(chanint(3, 88)),
+			path: path{rootnode{rtof(make(chan int))}},
+		}),
+	}, {
+		a: chanint(3, 88, 9), b: chanint(3, 88, 7),
+		err: elist(&valueError{
+			got: 9, want: 7,
+			path: path{
+				rootnode{rtof(chanint(3, 88, 7))},
+				channode{index: 3},
+			},
+		}),
 	},
 }
 

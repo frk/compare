@@ -104,6 +104,8 @@ func (conf Config) compare(got, want reflect.Value, cmp *comparison, p path) {
 		conf.compareFunc(got, want, cmp, p)
 	case reflect.String:
 		conf.compareString(got, want, cmp, p)
+	case reflect.Chan:
+		conf.compareChan(got, want, cmp, p)
 	default:
 		conf.compareInterfaceValue(got, want, cmp, p)
 	}
@@ -309,6 +311,25 @@ func (conf Config) compareString(got, want reflect.Value, cmp *comparison, p pat
 		return
 	}
 	cmp.errs.add(newStringError(gots, wants, p))
+}
+
+// compareChan
+func (conf Config) compareChan(got, want reflect.Value, cmp *comparison, p path) {
+	if got.Len() != want.Len() {
+		cmp.errs.add(&lenError{got, want, p})
+		// TODO(mkopriva): might be good to compare the contents and
+		// point out the "missing" or the "extra" elements...
+		return
+	}
+
+	if length := want.Len(); length > 0 {
+		for i := 1; i <= length; i++ {
+			q := p.add(channode{i})
+			ithGot, _ := got.Recv()
+			ithWant, _ := want.Recv()
+			conf.compare(ithGot, ithWant, cmp, q)
+		}
+	}
 }
 
 // compareInterfaceValue compares the two given values as normal interface{} values.
