@@ -251,6 +251,13 @@ func (conf Config) comparePointer(got, want reflect.Value, cmp *comparison, p pa
 
 // compareStruct compares the corresponding fields of the two given struct values.
 func (conf Config) compareStruct(got, want reflect.Value, cmp *comparison, p path) {
+	if structIsTime(got) {
+		if !got.MethodByName("Equal").Call([]reflect.Value{want})[0].Bool() {
+			cmp.errs.add(&valueError{got, want, p})
+		}
+		return
+	}
+
 	for i, n := 0, want.NumField(); i < n; i++ {
 		f := want.Type().Field(i)
 		if len(conf.ObserveFieldTag) > 0 {
@@ -345,6 +352,11 @@ func (conf Config) compareZero(got, want reflect.Value, cmp *comparison, p path)
 		cmp.errs.add(&zeroError{g, w, p})
 	}
 	cmp.zero = false
+}
+
+func structIsTime(v reflect.Value) bool {
+	typ := v.Type()
+	return typ.PkgPath() == "time" && typ.Name() == "Time"
 }
 
 func valueInterface(v reflect.Value) interface{} {

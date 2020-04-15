@@ -25,6 +25,14 @@ type CompareTest struct {
 	err  error
 }
 
+var (
+	ny, _ = time.LoadLocation("America/New_York")
+
+	now1 = time.Now()
+	now2 = now1.In(ny)
+	now3 = now2.Add(1)
+)
+
 // Simple functions for Compare tests.
 var (
 	fn1 func()             // nil.
@@ -87,6 +95,7 @@ var compareTests = []CompareTest{
 	{a: make(<-chan int, 10), b: make(<-chan int, 20), err: nil},
 	{a: make(chan<- int), b: make(chan<- int, 21), err: nil},
 	{a: chanint(3, 88, 9), b: chanint(3, 88, 9), err: nil},
+	{a: now1, b: now2, err: nil},
 
 	// Inequalities
 	{
@@ -153,6 +162,13 @@ var compareTests = []CompareTest{
 				rootnode{rtof(Basic{})},
 				structnode{field: "x"},
 			},
+		}),
+	}, {
+		a: now2,
+		b: now3,
+		err: elist(&valueError{
+			got: now2, want: now3,
+			path: path{rootnode{rtof(time.Time{})}},
 		}),
 	}, {
 		a: map[int]string{1: "one", 3: "two"},
