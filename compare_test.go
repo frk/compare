@@ -33,6 +33,10 @@ var (
 	now3 = now2.Add(1)
 )
 
+type tm struct {
+	time time.Time
+}
+
 // Simple functions for Compare tests.
 var (
 	fn1 func()             // nil.
@@ -96,6 +100,7 @@ var compareTests = []CompareTest{
 	{a: make(chan<- int), b: make(chan<- int, 21), err: nil},
 	{a: chanint(3, 88, 9), b: chanint(3, 88, 9), err: nil},
 	{a: now1, b: now2, err: nil},
+	{a: tm{now1}, b: tm{now1}, err: nil},
 
 	// Inequalities
 	{
@@ -170,6 +175,16 @@ var compareTests = []CompareTest{
 			got: now2, want: now3,
 			path: path{rootnode{rtof(time.Time{})}},
 		}),
+		//}, {
+		//	a: tm{now1},
+		//	b: tm{now2},
+		//	err: elist(&valueError{
+		//		got: now1, want: now2,
+		//		path: path{
+		//			rootnode{rtof(tm{})},
+		//			structnode{field: "time"},
+		//		},
+		//	}),
 	}, {
 		a: map[int]string{1: "one", 3: "two"},
 		b: map[int]string{2: "two", 1: "one"},

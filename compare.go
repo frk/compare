@@ -252,10 +252,14 @@ func (conf Config) comparePointer(got, want reflect.Value, cmp *comparison, p pa
 // compareStruct compares the corresponding fields of the two given struct values.
 func (conf Config) compareStruct(got, want reflect.Value, cmp *comparison, p path) {
 	if structIsTime(got) {
-		if !got.MethodByName("Equal").Call([]reflect.Value{want})[0].Bool() {
-			cmp.errs.add(&valueError{got, want, p})
+		// CanInterface is used here to determine whether or not
+		// the value was obtained from an unexported field.
+		if m := got.MethodByName("Equal"); m.CanInterface() {
+			if !m.Call([]reflect.Value{want})[0].Bool() {
+				cmp.errs.add(&valueError{got, want, p})
+			}
+			return
 		}
-		return
 	}
 
 	for i, n := 0, want.NumField(); i < n; i++ {
