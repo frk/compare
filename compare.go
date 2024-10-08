@@ -21,14 +21,16 @@ type Config struct {
 	IgnoreArrayOrder bool
 
 	// The tag name to be checked by Compare for optional comparison rules.
-	// If ObserveFieldTag is set, its value will be used as the name of the tag
-	// to be checked, if it is empty then no tag will be checked.
+	// If ObserveFieldTag is set, its value will be used as the name of the
+	// tag to be checked, if it is empty then no tag will be checked.
 	//
 	// Currently the only optional rules are:
 	// "-": The minus option omits a field from comparison.
 	// "+": The plus option omits field *value* comparison, however, it does
 	//      compare the fields' "zero-ness", that is, it checks whether both
 	//      fields are zero or whether they are both non-zero.
+	// "omitempty": The omitempty option omits a field from comparison iff
+	//              the field of the "want" value is empty..
 	ObserveFieldTag string
 }
 
@@ -222,6 +224,11 @@ func (conf Config) compareArrayIgnoreOrder(got, want reflect.Value, cmp *compari
 			}
 		}
 		if !foundEqual {
+			// TODO(mkopriva): this becomes pretty unhelpful for
+			// nested slices/arrays where two elements may be the
+			// same but for a single deeply nested field, in such
+			// a case the path in the error message is absolutely
+			// insufficient.
 			gotNil := reflect.ValueOf((*interface{})(nil))
 			cmp.errs.add(&nilError{gotNil, ithWant, q})
 		}
@@ -265,10 +272,12 @@ func (conf Config) compareStruct(got, want reflect.Value, cmp *comparison, p pat
 	for i, n := 0, want.NumField(); i < n; i++ {
 		f := want.Type().Field(i)
 		if len(conf.ObserveFieldTag) > 0 {
-			if f.Tag.Get(conf.ObserveFieldTag) == "-" {
+			switch tag := f.Tag.Get(conf.ObserveFieldTag); {
+			case tag == "omitempty" && (!want.IsValid() || want.IsZero()):
 				continue
-			}
-			if f.Tag.Get(conf.ObserveFieldTag) == "+" {
+			case tag == "-":
+				continue
+			case tag == "+":
 				cmp.zero = true
 			}
 		}

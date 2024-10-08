@@ -18,6 +18,7 @@ type NotBasic Basic
 type Tagged struct {
 	f1 string `cmp:"-"`
 	f2 string `cmp:"+"`
+	f3 string `cmp:"omitempty"`
 }
 
 type CompareTest struct {
@@ -92,9 +93,12 @@ var compareTests = []CompareTest{
 	{a: error(nil), b: error(nil), err: nil},
 	{a: map[int]string{1: "one", 2: "two"}, b: map[int]string{2: "two", 1: "one"}, err: nil},
 	{a: fn1, b: fn2, err: nil},
-	{a: Tagged{"abc", "foo"}, b: Tagged{"abc", "foo"}, err: nil},
-	{a: Tagged{"abc", "foo"}, b: Tagged{"def", "bar"}, err: nil},
-	{a: Tagged{"abc", ""}, b: Tagged{"", ""}, err: nil},
+	{a: Tagged{"abc", "foo", ""}, b: Tagged{"abc", "foo", ""}, err: nil},
+	{a: Tagged{"abc", "foo", ""}, b: Tagged{"def", "bar", ""}, err: nil},
+	{a: Tagged{"abc", "", ""}, b: Tagged{"", "", ""}, err: nil},
+	{a: Tagged{"abc", "", ""}, b: Tagged{"", "", ""}, err: nil},
+	{a: Tagged{"abc", "", "foo"}, b: Tagged{"", "", "foo"}, err: nil},
+	{a: Tagged{"abc", "", "foo"}, b: Tagged{"", "", ""}, err: nil},
 	{a: make(chan int), b: make(chan int), err: nil},
 	{a: make(<-chan int, 10), b: make(<-chan int, 20), err: nil},
 	{a: make(chan<- int), b: make(chan<- int, 21), err: nil},
@@ -399,6 +403,14 @@ var compareTests = []CompareTest{
 			rootnode{rtof(Tagged{})},
 			structnode{field: "f2"},
 		}}),
+	}, {
+		a: Tagged{f3: ""}, b: Tagged{f3: "bar"},
+		err: elist(
+			newStringError("", "bar", path{
+				rootnode{rtof(Tagged{})},
+				structnode{field: "f3"},
+			}),
+		),
 	},
 
 	// channels
