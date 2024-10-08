@@ -273,7 +273,7 @@ func (conf Config) compareStruct(got, want reflect.Value, cmp *comparison, p pat
 		f := want.Type().Field(i)
 		if len(conf.ObserveFieldTag) > 0 {
 			switch tag := f.Tag.Get(conf.ObserveFieldTag); {
-			case tag == "omitempty" && (!want.IsValid() || want.IsZero()):
+			case tag == "omitempty" && isZero(want.Field(i)):
 				continue
 			case tag == "-":
 				continue
@@ -361,7 +361,7 @@ func (conf Config) compareInterfaceValue(got, want reflect.Value, cmp *compariso
 
 // compareZero checks whether the two given values are both zero or both non-zero values.
 func (conf Config) compareZero(got, want reflect.Value, cmp *comparison, p path) {
-	if g, w := got.IsZero(), want.IsZero(); g != w {
+	if g, w := isZero(got), isZero(want); g != w {
 		cmp.errs.add(&zeroError{g, w, p})
 	}
 	cmp.zero = false
@@ -400,4 +400,21 @@ func valueInterface(v reflect.Value) interface{} {
 		return v.Pointer()
 	}
 	return v.Interface()
+}
+
+func isZero(v reflect.Value) bool {
+	if !v.IsValid() {
+		return true
+	}
+	if v.Kind() != reflect.Struct {
+		return v.IsZero()
+	}
+
+	for i, n := 0, v.NumField(); i < n; i++ {
+		if !isZero(v.Field(i)) {
+			return false
+		}
+	}
+
+	return true
 }
