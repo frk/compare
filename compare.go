@@ -224,13 +224,9 @@ func (conf Config) compareArrayIgnoreOrder(got, want reflect.Value, cmp *compari
 			}
 		}
 		if !foundEqual {
-			// TODO(mkopriva): this becomes pretty unhelpful for
-			// nested slices/arrays where two elements may be the
-			// same but for a single deeply nested field, in such
-			// a case the path in the error message is absolutely
-			// insufficient.
-			gotNil := reflect.ValueOf((*interface{})(nil))
-			cmp.errs.add(&nilError{gotNil, ithWant, q})
+			// For the purposes of error reporting, if no match
+			// is found, execute comparison for the elements at i.
+			conf.compare(got.Index(i), ithWant, cmp, q)
 		}
 	}
 }
